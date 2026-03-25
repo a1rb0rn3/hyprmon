@@ -1,0 +1,13 @@
+[Unit]
+Description=Hyprland monitor event daemon
+Documentation=https://github.com/a1rb0rn3/hyprmon
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/hyprmon
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target

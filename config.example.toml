@@ -1,0 +1,97 @@
+# hyprmon configuration
+# Place this file at: ~/.config/hyprmon/config.toml
+#
+# Profiles are evaluated in order — the first match wins.
+# A profile matches when every pattern in its "match" list corresponds to
+# at least one currently connected monitor (glob syntax, * is a wildcard).
+# An empty "match" list always matches — use it as a fallback at the end.
+
+# Optional: seconds to wait after a monitor event before re-evaluating.
+event_delay = 0.5
+
+# ---------------------------------------------------------------------------
+# Lid detection (optional)
+#
+# When configured, each profile can define exec_lid_open and exec_lid_closed
+# in addition to exec. These are run after exec based on the current lid state.
+#
+# Common state_file paths:
+#   /proc/acpi/button/lid/LID/state
+#   /proc/acpi/button/lid/LID0/state
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Per-profile environment variables (optional)
+#
+# Add an [env] table to any profile to set systemd user environment variables
+# when that profile is activated. Variables are applied via
+# `systemctl --user set-environment` and automatically unset when switching
+# to a profile that does not define them.
+#
+# This is useful for XWayland scaling: when using fractional scaling on the
+# laptop display (e.g. scale=2.0 or scale=1.6), XWayland apps need
+# QT_SCALE_FACTOR (Qt) or GDK_SCALE (GTK) to be set to the correct value.
+# Use `xwayland { force_zero_scaling = true }` in hyprland.conf alongside.
+#
+# Example (inside a [[profile]] block):
+#   [profile.env]
+#   QT_SCALE_FACTOR = "2"
+# ---------------------------------------------------------------------------
+
+[lid]
+state_file = "/proc/acpi/button/lid/LID/state"
+# open_string = "open"  # default — string that indicates the lid is open
+
+# ---------------------------------------------------------------------------
+# Example: laptop with two external monitors (docked) and no external (mobile)
+# Run `hyprctl monitors | grep description` to find your monitor description strings.
+# ---------------------------------------------------------------------------
+
+[[profile]]
+name = "docked"
+match = [
+    "Make Model SERIAL1*",  # left display
+    "Make Model SERIAL2*",  # right display
+]
+lockscreen_monitors = ["DP-1"]  # optional: pin noctalia lock screen to this connector
+exec = [
+    # External monitors — always applied regardless of lid state
+    "hyprctl keyword monitor desc:Make Model SERIAL1,2560x1440@60,0x0,1",
+    "hyprctl keyword monitor desc:Make Model SERIAL2,2560x1440@60,2560x0,1",
+]
+exec_lid_open = [
+    # Laptop display to the right of the external monitors
+    "hyprctl keyword monitor eDP-1,preferred,5120x0,2",
+]
+exec_lid_closed = [
+    # Keep eDP-1 in Hyprland's internal list (avoids the wlr-output-management bug)
+    'hyprctl keyword monitor "eDP-1,disabled"',
+]
+
+# Add more profiles for different locations, e.g.:
+# [[profile]]
+# name = "home"
+# match = ["Make Model SERIAL3*"]
+# exec = ["hyprctl keyword monitor desc:Make Model SERIAL3,preferred,0x0,1"]
+# exec_lid_open  = ["hyprctl keyword monitor eDP-1,preferred,auto,2"]
+# exec_lid_closed = ['hyprctl keyword monitor "eDP-1,disabled"']
+
+[[profile]]
+name = "mobile"
+match = []  # fallback: matches whenever no earlier profile matched
+lockscreen_monitors = []  # empty = all monitors (noctalia default)
+exec_lid_open = [
+    "hyprctl keyword monitor eDP-1,preferred,0x0,2",
+]
+exec_lid_closed = [
+    # Lid closed with no external monitors — shouldn't normally happen,
+    # but handle gracefully (logind will suspend via HandleLidSwitch=suspend)
+    'hyprctl keyword monitor "eDP-1,disabled"',
+]
+
+# XWayland apps need QT_SCALE_FACTOR to match the Hyprland fractional scale.
+# With scale=1.6 on eDP-1 and `xwayland { force_zero_scaling = true }`,
+# set QT_SCALE_FACTOR=1.6 so Qt apps render at the right size.
+# This is automatically unset when switching to a profile without [env].
+# [profile.env]
+# QT_SCALE_FACTOR = "1.6"
